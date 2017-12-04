@@ -1,0 +1,22 @@
+---
+
+cf_stack: "malvo-proxy-stack"
+aws_region: "ap-south-1"
+aws_region: "ap-south-1"
+aws_security_key: ''
+cf_template_url: 'https://editions-us-east-1.s3.amazonaws.com/aws/stable/Docker.tmpl'
+cf_role_path: ''
+cf_role_name: 'cf-docker'
+cf_assume_role_policy_path: '{{playbook_dir}}/templates/cf_assume_role_policy.json'
+cf_role_policy_path: '{{playbook_dir}}/templates/cf_role_policy.json'
+aws_worker_instance_type: 't2.small'
+aws_manager_instance_type: 't2.small'
+worker_size: 2
+manager_size: 1
+enable_system_prune: 'yes'
+enable_cloudwatch_logs: 'yes'
+worker_disk_size: 40
+manager_disk_size: 40
+worker_disk_type: 'standard'
+manager_disk_type: 'standard'
+

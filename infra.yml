@@ -1,0 +1,75 @@
+---
+
+- hosts: "localhost"
+  connection: "local"
+  gather_facts: false
+  tasks:
+    - name: Create service role for CloudFormation
+      iam_role:
+        assume_role_policy_document: '{{lookup("file", cf_assume_role_policy_path)}}'
+        path: '{{cf_role_path}}'
+        name: '{{cf_role_name}}'
+        state: "present"
+      register: cf_role
+
+    - name: Attach a policy for docker CloudFormation stack
+      iam_policy:
+        iam_name: '{{cf_role_name}}'
+        iam_type: role
+        policy_document: '{{cf_role_policy_path}}'
+        policy_name: '{{cf_role_name}}'
+        region: '{{aws_region}}'
+        state: present
+
+    - name: Deploy Docker For AWS CloudFormation Stack
+      cloudformation:
+        stack_name: '{{cf_stack}}'
+        region: '{{aws_region}}'
+        state: "present"
+        template_url: '{{cf_template_url}}'
+        role_arn: '{{cf_role.iam_role.arn}}'
+        tags:
+          Name: '{{cf_stack}}'
+        template_parameters:
+          KeyName: '{{aws_security_key}}'
+          InstanceType: '{{aws_worker_instance_type}}'
+          ManagerInstanceType: '{{aws_manager_instance_type}}'
+          ClusterSize: '{{worker_size}}'
+          ManagerSize: '{{manager_size}}'
+          EnableSystemPrune: '{{enable_system_prune}}'
+          EnableCloudWatchLogs: '{{enable_cloudwatch_logs}}'
+          WorkerDiskSize: '{{worker_disk_size}}'
+          ManagerDiskSize: '{{manager_disk_size}}'
+          WorkerDiskType: '{{worker_disk_type}}'
+          ManagerDiskType: '{{manager_disk_type}}'
+
+- name: refresh inventory
+  hosts: localhost
+  connection: local
+  gather_facts: False
+  tasks:
+    - name: Refresh EC2 cache
+      command: ./inventory/ec2.py --refresh-cache
+      meta: refresh_inventory
+
+    - name: Set CF Node
+      set_fact: cf_nodes="tag_aws_cloudformation_stack_name_{{cf_stack | regex_replace('[^A-Za-z0-9\_]', '_') }}"
+
+    - name: Set Swarm Manager
+      add_host: hostname={{ item }} groups=swarm-manager-nodes
+      with_items: "{{ groups[cf_nodes] | intersect(groups['tag_swarm_node_type_manager']) }}"
+
+
+- hosts: swarm-manager-nodes
+  gather_facts: False
+  remote_user: docker
+  tasks:
+  - name: install python 2
+    raw: test -e /usr/bin/python || (sudo apk add --update python)
+
+- hosts: swarm-manager-node
+  remote_user: docker
+  tasks:
+    - command: docker login -u {{docker_registry_user}} -p {{docker_registry_pass}}
+
+
